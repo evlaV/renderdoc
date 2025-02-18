@@ -34,6 +34,9 @@ RDOC_CONFIG(bool, Vulkan_GPUReadbackDeviceLocal, true,
 RDOC_CONFIG(bool, Vulkan_Hack_ImageCompatibility, false,
             "Allocate separate memory for images if the memory requirements are not met.");
 
+RDOC_CONFIG(bool, Vulkan_Hack_DisableImageNormalisation, false,
+            "Disable adding capabilities to images and their views.");
+
 /************************************************************************
  *
  * Mapping is simpler in Vulkan, at least in concept, but that comes with
@@ -2188,6 +2191,7 @@ bool WrappedVulkan::Serialise_vkCreateImage(SerialiserType &ser, VkDevice device
   {
     VkImage img = VK_NULL_HANDLE;
 
+    VkImageCreateInfo originalCreateInfo = CreateInfo;
     VkImageUsageFlags origusage = CreateInfo.usage;
 
     // ensure we can always display and copy from/to textures
@@ -2260,13 +2264,18 @@ bool WrappedVulkan::Serialise_vkCreateImage(SerialiserType &ser, VkDevice device
       }
     }
 
+    VkImageCreateInfo patched = CreateInfo;
+    byte *tempMem = GetTempMemory(GetNextPatchSize(patched.pNext));
+
+    UnwrapNextChain(m_State, "VkImageCreateInfo", tempMem, (VkBaseInStructure *)&patched);
+
     rdcarray<VkFormat> patchedFormatList;
 
     // similarly for the image format list for MSAA textures, add the UINT cast format we will need
     if(CreateInfo.samples != VK_SAMPLE_COUNT_1_BIT)
     {
       VkImageFormatListCreateInfo *formatListInfo = (VkImageFormatListCreateInfo *)FindNextStruct(
-          &CreateInfo, VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO);
+          &patched, VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO);
 
       if(formatListInfo)
       {
@@ -2307,11 +2316,10 @@ bool WrappedVulkan::Serialise_vkCreateImage(SerialiserType &ser, VkDevice device
       }
     }
 
-    VkImageCreateInfo patched = CreateInfo;
-
-    byte *tempMem = GetTempMemory(GetNextPatchSize(patched.pNext));
-
-    UnwrapNextChain(m_State, "VkImageCreateInfo", tempMem, (VkBaseInStructure *)&patched);
+    if(Vulkan_Hack_DisableImageNormalisation())
+    {
+      patched = originalCreateInfo;
+    }
 
     VkResult ret = ObjDisp(device)->CreateImage(Unwrap(device), &patched, NULL, &img);
 
@@ -2836,7 +2844,7 @@ bool WrappedVulkan::Serialise_vkCreateImageView(SerialiserType &ser, VkDevice de
     VkImageViewUsageCreateInfo *usageInfo = (VkImageViewUsageCreateInfo *)FindNextStruct(
         unwrappedInfo, VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO);
 
-    if(usageInfo)
+    if(usageInfo && !Vulkan_Hack_DisableImageNormalisation())
     {
       VkSampleCountFlagBits samples = m_CreationInfo.m_Image[GetResID(CreateInfo.image)].samples;
 
