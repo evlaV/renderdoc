@@ -31,6 +31,9 @@ RDOC_CONFIG(bool, Vulkan_GPUReadbackDeviceLocal, true,
             "When reading back mapped device-local memory, use a GPU copy "
             "instead of a CPU side comparison directly to mapped memory.");
 
+RDOC_CONFIG(bool, Vulkan_Hack_ImageCompatibility, false,
+            "Allocate separate memory for images if the memory requirements are not met.");
+
 /************************************************************************
  *
  * Mapping is simpler in Vulkan, at least in concept, but that comes with
@@ -300,6 +303,11 @@ bool WrappedVulkan::Serialise_vkAllocateMemory(SerialiserType &ser, VkDevice dev
   if(IsReplayingAndReading())
   {
     VkDeviceMemory mem = VK_NULL_HANDLE;
+
+    if (Vulkan_Hack_ImageCompatibility())
+    {
+      AllocateInfo.memoryTypeIndex = GetUploadMemoryIndex(~0U);
+    }
 
     VkMemoryAllocateInfo patched = AllocateInfo;
 
@@ -1595,10 +1603,18 @@ bool WrappedVulkan::Serialise_vkBindImageMemory(SerialiserType &ser, VkDevice de
     bool ok = CheckMemoryRequirements(GetResourceDesc(resOrigId).name.c_str(), GetResID(memory),
                                       memoryOffset, mrq, imgInfo.external, imgInfo.mrq);
 
-    if(!ok)
-      return false;
+    if (!ok && Vulkan_Hack_ImageCompatibility()) {
+      MemoryAllocation all = AllocateMemoryForResource(image, MemoryScope::ImmutableReplayDebug, MemoryType::GPULocal);
+      ObjDisp(device)->BindImageMemory(Unwrap(device), Unwrap(image), Unwrap(all.mem), all.offs);
+      RDCLOG("Forced separate allocation for image %s", ToStr(GetResID(image)).c_str());
+    }
+    else
+    {
+      if(!ok)
+        return false;
 
-    ObjDisp(device)->BindImageMemory(Unwrap(device), Unwrap(image), Unwrap(memory), memoryOffset);
+      ObjDisp(device)->BindImageMemory(Unwrap(device), Unwrap(image), Unwrap(memory), memoryOffset);
+    }
 
     {
       LockedImageStateRef state = FindImageState(GetResID(image));
@@ -3099,6 +3115,8 @@ bool WrappedVulkan::Serialise_vkBindImageMemory2(SerialiserType &ser, VkDevice d
 
   if(IsReplayingAndReading())
   {
+    VkBindImageMemoryInfo *unwrapped = UnwrapInfos(m_State, pBindInfos, bindInfoCount);
+
     for(uint32_t i = 0; i < bindInfoCount; i++)
     {
       const VkBindImageMemoryInfo &bindInfo = pBindInfos[i];
@@ -3115,8 +3133,10 @@ bool WrappedVulkan::Serialise_vkBindImageMemory2(SerialiserType &ser, VkDevice d
                                         GetResID(bindInfo.memory), bindInfo.memoryOffset, mrq,
                                         imgInfo.external, imgInfo.mrq);
 
-      if(!ok)
+      if (!ok && !Vulkan_Hack_ImageCompatibility())
+      {
         return false;
+      }
 
       {
         ResourceId id = GetResID(bindInfo.image);
@@ -3143,9 +3163,15 @@ bool WrappedVulkan::Serialise_vkBindImageMemory2(SerialiserType &ser, VkDevice d
       m_CreationInfo.m_Memory[GetResID(bindInfo.memory)].BindMemory(
           bindInfo.memoryOffset, mrq.size,
           imgInfo.linear ? VulkanCreationInfo::Memory::Linear : VulkanCreationInfo::Memory::Tiled);
+
+      if (!ok && Vulkan_Hack_ImageCompatibility()) {
+        MemoryAllocation all = AllocateMemoryForResource(
+          bindInfo.image, MemoryScope::ImmutableReplayDebug, MemoryType::GPULocal);
+        unwrapped[i].memory = all.mem;
+        unwrapped[i].memoryOffset = all.offs;
+      }
     }
 
-    VkBindImageMemoryInfo *unwrapped = UnwrapInfos(m_State, pBindInfos, bindInfoCount);
     ObjDisp(device)->BindImageMemory2(Unwrap(device), bindInfoCount, unwrapped);
   }
 
