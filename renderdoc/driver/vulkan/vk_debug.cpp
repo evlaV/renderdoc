@@ -45,6 +45,7 @@
 #include "data/glsl/glsl_ubos_cpp.h"
 
 RDOC_EXTERN_CONFIG(bool, Vulkan_Debug_SingleSubmitFlushing);
+RDOC_EXTERN_CONFIG(bool, Vulkan_Hack_DisableRPNormalisation);
 RDOC_CONFIG(bool, Vulkan_Debug_DisableBufferDeviceAddress, false,
             "Disable use of buffer device address for PS Input fetch.");
 
@@ -2175,6 +2176,9 @@ void VulkanDebugManager::FillWithDiscardPattern(VkCommandBuffer cmd, DiscardType
 {
   // State tracking will not be accurate during loading
   if(IsLoading(m_pDriver->m_State))
+    return;
+
+  if (Vulkan_Hack_DisableRPNormalisation())
     return;
 
   VkDevice dev = m_Device;
