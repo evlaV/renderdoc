@@ -478,8 +478,8 @@ void ProcessEnvVars(SDObject *config)
     else if(child->type.name == "setting"_lit && child->FindChild("key"))
     {
       rdcstr envVarName = "RENDERDOC_" + child->FindChild("key")->data.str;
-      const char *envVal = getenv(envVarName.c_str());
-      if (!envVal)
+      rdcstr var = Process::GetEnvVariable(envVarName.c_str());
+      if (var.empty())
         continue;
 
       SDObject *valueObj = child->FindChild("value");
@@ -491,20 +491,19 @@ void ProcessEnvVars(SDObject *config)
         switch(valueObj->type.basetype)
         {
           case SDBasic::Boolean:
-            valueObj->data.basic.b = (strcmp(envVal, "1") == 0 ||
-                                      strcasecmp(envVal, "true") == 0);
+            valueObj->data.basic.b = (var == rdcstr("1") || var == rdcstr("true"));
             break;
           case SDBasic::UnsignedInteger:
-            valueObj->data.basic.u = strtoull(envVal, NULL, 0);
+            valueObj->data.basic.u = strtoull(var.c_str(), NULL, 0);
             break;
           case SDBasic::SignedInteger:
-            valueObj->data.basic.i = strtoll(envVal, NULL, 0);
+            valueObj->data.basic.i = strtoll(var.c_str(), NULL, 0);
             break;
           case SDBasic::Float:
-            valueObj->data.basic.d = strtod(envVal, NULL);
+            valueObj->data.basic.d = strtod(var.c_str(), NULL);
             break;
           case SDBasic::String:
-            valueObj->data.str = envVal;
+            valueObj->data.str = var;
             break;
           default:
             RDCWARN("Unsupported config type %s for env var %s",
