@@ -1606,7 +1606,7 @@ bool WrappedVulkan::Serialise_vkBindImageMemory(SerialiserType &ser, VkDevice de
     bool ok = CheckMemoryRequirements(GetResourceDesc(resOrigId).name.c_str(), GetResID(memory),
                                       memoryOffset, mrq, imgInfo.external, imgInfo.mrq);
 
-    if (!ok && Vulkan_Hack_ImageCompatibility()) {
+    if (Vulkan_Hack_ImageCompatibility()) {
       MemoryAllocation all = AllocateMemoryForResource(image, MemoryScope::ImmutableReplayDebug, MemoryType::GPULocal);
       ObjDisp(device)->BindImageMemory(Unwrap(device), Unwrap(image), Unwrap(all.mem), all.offs);
       RDCLOG("Forced separate allocation for image %s", ToStr(GetResID(image)).c_str());
@@ -3172,7 +3172,7 @@ bool WrappedVulkan::Serialise_vkBindImageMemory2(SerialiserType &ser, VkDevice d
           bindInfo.memoryOffset, mrq.size,
           imgInfo.linear ? VulkanCreationInfo::Memory::Linear : VulkanCreationInfo::Memory::Tiled);
 
-      if (!ok && Vulkan_Hack_ImageCompatibility()) {
+      if (Vulkan_Hack_ImageCompatibility()) {
         MemoryAllocation all = AllocateMemoryForResource(
           bindInfo.image, MemoryScope::ImmutableReplayDebug, MemoryType::GPULocal);
         unwrapped[i].memory = all.mem;
