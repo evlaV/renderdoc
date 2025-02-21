@@ -530,6 +530,7 @@ private:
   uint32_t width = 0;
   uint32_t height = 0;
   uint32_t loops = 0;
+  ReplayOptimisationLevel optimisation_level = ReplayOptimisationLevel::Balanced;
 
 public:
   ReplayCommand() : Command() {}
@@ -543,6 +544,10 @@ public:
     parser.add<std::string>("remote-host", 0,
                             "Instead of replaying locally, replay on this host over the network.",
                             false);
+    parser.add<std::string>("optimisation", 'o',
+                            "The optimisation level to use: "
+                            "balanced, conservative, fastest.",
+                            false, "balanced");
   }
   virtual const char *Description()
   {
@@ -573,6 +578,13 @@ public:
     width = parser.get<uint32_t>("width");
     height = parser.get<uint32_t>("height");
     loops = parser.get<uint32_t>("loops");
+    std::string optimisation_level_str = parser.get<std::string>("optimisation");
+    if(optimisation_level_str == "conservative")
+      optimisation_level = ReplayOptimisationLevel::Conservative;
+    else if(optimisation_level_str == "balanced")
+      optimisation_level = ReplayOptimisationLevel::Balanced;
+    else if(optimisation_level_str == "fastest")
+      optimisation_level = ReplayOptimisationLevel::Fastest;
 
     return true;
   }
@@ -599,7 +611,9 @@ public:
       rdcstr remotePath = remote->CopyCaptureToRemote(conv(filename), NULL);
 
       IReplayController *renderer = NULL;
-      rdctie(result, renderer) = remote->OpenCapture(~0U, remotePath, ReplayOptions(), NULL);
+      ReplayOptions opts;
+      opts.optimisation = optimisation_level;
+      rdctie(result, renderer) = remote->OpenCapture(~0U, remotePath, opts, NULL);
 
       if(result.OK())
       {
@@ -631,7 +645,9 @@ public:
 
       IReplayController *renderer = NULL;
       ResultDetails result = {};
-      rdctie(result, renderer) = file->OpenCapture(ReplayOptions(), NULL);
+      ReplayOptions opts;
+      opts.optimisation = optimisation_level;
+      rdctie(result, renderer) = file->OpenCapture(opts, NULL);
 
       file->Shutdown();
 
