@@ -253,7 +253,11 @@ rdcstr GetFriendlyName(const rdcstr &deviceID)
   //
   // We do this here so that we sneakily take advantage of the above caching - otherwise we spam adb
   // root commands into the log
-  Android::adbExecCommand(deviceID, "root");
+
+  // Elliot: disabling this because it causes `adb` to hiccup, which always causes the next two commands
+  // to fail, which screws up some autodetection later.  This results in lots of pauses and the renderdoc
+  // build always needing to deploy the `.apk`.
+  //Android::adbExecCommand(deviceID, "root");
 
   rdcstr manuf =
       Android::adbExecCommand(deviceID, "shell getprop ro.product.manufacturer").strStdout.trimmed();
@@ -282,7 +286,7 @@ bool HasRootAccess(const rdcstr &deviceID)
   // Nothing will fall over if we get a false positive here, it just enables
   // additional methods of getting things set up.
 
-  Process::ProcessResult result = adbExecCommand(deviceID, "root");
+  //Process::ProcessResult result = adbExecCommand(deviceID, "root");
 
   rdcstr whoami = adbExecCommand(deviceID, "shell whoami").strStdout.trimmed();
   if(whoami == "root")
