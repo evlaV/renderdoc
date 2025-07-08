@@ -3465,6 +3465,20 @@ bool WrappedVulkan::Serialise_vkCreateDevice(SerialiserType &ser, VkPhysicalDevi
         CHECK_PHYS_EXT_FEATURE(rayTracingPositionFetch);
       }
       END_PHYS_EXT_CHECK();
+
+      BEGIN_PHYS_EXT_CHECK(VkPhysicalDeviceMultiviewPerViewRenderAreasFeaturesQCOM,
+                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_RENDER_AREAS_FEATURES_QCOM);
+      {
+        CHECK_PHYS_EXT_FEATURE(multiviewPerViewRenderAreas);
+      }
+      END_PHYS_EXT_CHECK();
+
+      BEGIN_PHYS_EXT_CHECK(VkPhysicalDeviceMultiviewPerViewViewportsFeaturesQCOM,
+                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_VIEWPORTS_FEATURES_QCOM);
+      {
+        CHECK_PHYS_EXT_FEATURE(multiviewPerViewViewports);
+      }
+      END_PHYS_EXT_CHECK();
     }
 
     if(availFeatures.depthClamp)

@@ -1491,6 +1491,16 @@ SERIALISE_VK_HANDLES();
   PNEXT_STRUCT(VK_STRUCTURE_TYPE_SUBPASS_FRAGMENT_DENSITY_MAP_OFFSET_END_INFO_QCOM,                    \
                VkSubpassFragmentDensityMapOffsetEndInfoQCOM)                                           \
                                                                                                        \
+  /* VK_QCOM_multiview_per_view_viewports */                                                           \
+  PNEXT_STRUCT(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_VIEWPORTS_FEATURES_QCOM,           \
+               VkPhysicalDeviceMultiviewPerViewViewportsFeaturesQCOM)                                  \
+                                                                                                       \
+  /* VK_QCOM_multiview_per_view_render_areas */                                                        \
+  PNEXT_STRUCT(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_RENDER_AREAS_FEATURES_QCOM,        \
+               VkPhysicalDeviceMultiviewPerViewRenderAreasFeaturesQCOM)                                \
+  PNEXT_STRUCT(VK_STRUCTURE_TYPE_MULTIVIEW_PER_VIEW_RENDER_AREAS_RENDER_PASS_BEGIN_INFO_QCOM,          \
+               VkMultiviewPerViewRenderAreasRenderPassBeginInfoQCOM)                                   \
+                                                                                                       \
   /* Surface creation structs. These would pull in dependencies on OS-specific includes. */            \
   /* So treat them as unsupported. */                                                                  \
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR)                                 \
@@ -2252,11 +2262,15 @@ SERIALISE_VK_HANDLES();
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_BLIT_IMAGE_CUBIC_WEIGHTS_INFO_QCOM)                              \
                                                                                                        \
   /* VK_QCOM_multiview_per_view_render_areas */                                                        \
+  /*
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_RENDER_AREAS_FEATURES_QCOM)   \
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_MULTIVIEW_PER_VIEW_RENDER_AREAS_RENDER_PASS_BEGIN_INFO_QCOM)     \
+  */ \
                                                                                                        \
   /* VK_QCOM_multiview_per_view_viewports */                                                           \
+  /*
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_VIEWPORTS_FEATURES_QCOM)      \
+  */ \
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDER_PASS_TRANSFORM_INFO_QCOM)      \
   PNEXT_UNSUPPORTED(VK_STRUCTURE_TYPE_RENDER_PASS_TRANSFORM_BEGIN_INFO_QCOM)                           \
                                                                                                        \
@@ -2293,7 +2307,7 @@ template <typename SerialiserType>
 static void SerialiseNextError(SerialiserType &ser, const char *sType, const void *&pNext)
 {
   RDResult res;
-  SET_ERROR_RESULT(res, ResultCode::APIUnsupported, "No support for %s is available in this build",
+  SET_ERROR_RESULT(res, ResultCode::APIUnsupported, "(SerializeError) No support for %s is available in this build",
                    sType);
   pNext = NULL;
   ser.SetError(res);
@@ -2375,7 +2389,7 @@ static void SerialiseNext(SerialiserType &ser, VkStructureType &sType, const voi
 #define PNEXT_UNSUPPORTED(StructType)                                    \
   case StructType:                                                       \
   {                                                                      \
-    RDCERR("No support for " #StructType " is available in this build"); \
+    RDCERR("(IsWriting) No support for " #StructType " is available in this build"); \
     handled = true;                                                      \
     break;                                                               \
   }
@@ -2445,7 +2459,7 @@ static inline void DeserialiseNext(const void *pNext)
 #define PNEXT_UNSUPPORTED(StructType)                                    \
   case StructType:                                                       \
   {                                                                      \
-    RDCERR("No support for " #StructType " is available in this build"); \
+    RDCERR("(DeserializeNext) No support for " #StructType " is available in this build"); \
     return;                                                              \
   }
 
@@ -7072,6 +7086,54 @@ void DoSerialise(SerialiserType &ser, VkPhysicalDeviceMultiviewFeatures &el)
 
 template <>
 void Deserialise(const VkPhysicalDeviceMultiviewFeatures &el)
+{
+  DeserialiseNext(el.pNext);
+}
+
+template <typename SerialiserType>
+void DoSerialise(SerialiserType &ser, VkPhysicalDeviceMultiviewPerViewViewportsFeaturesQCOM &el)
+{
+  RDCASSERT(ser.IsReading() || el.sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_VIEWPORTS_FEATURES_QCOM);
+  SerialiseNext(ser, el.sType, el.pNext);
+
+  SERIALISE_MEMBER(multiviewPerViewViewports);
+}
+
+template <>
+void Deserialise(const VkPhysicalDeviceMultiviewPerViewViewportsFeaturesQCOM &el)
+{
+  DeserialiseNext(el.pNext);
+}
+
+template <typename SerialiserType>
+void DoSerialise(SerialiserType &ser, VkPhysicalDeviceMultiviewPerViewRenderAreasFeaturesQCOM &el)
+{
+  RDCASSERT(ser.IsReading() ||
+            el.sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_RENDER_AREAS_FEATURES_QCOM);
+  SerialiseNext(ser, el.sType, el.pNext);
+
+  SERIALISE_MEMBER(multiviewPerViewRenderAreas);
+}
+
+template <>
+void Deserialise(const VkPhysicalDeviceMultiviewPerViewRenderAreasFeaturesQCOM &el)
+{
+  DeserialiseNext(el.pNext);
+}
+
+template <typename SerialiserType>
+void DoSerialise(SerialiserType &ser, VkMultiviewPerViewRenderAreasRenderPassBeginInfoQCOM &el)
+{
+  RDCASSERT(ser.IsReading() ||
+            el.sType == VK_STRUCTURE_TYPE_MULTIVIEW_PER_VIEW_RENDER_AREAS_RENDER_PASS_BEGIN_INFO_QCOM);
+  SerialiseNext(ser, el.sType, el.pNext);
+
+  SERIALISE_MEMBER(perViewRenderAreaCount);
+  SERIALISE_MEMBER_ARRAY(pPerViewRenderAreas, perViewRenderAreaCount);
+}
+
+template <>
+void Deserialise(const VkMultiviewPerViewRenderAreasRenderPassBeginInfoQCOM &el)
 {
   DeserialiseNext(el.pNext);
 }
@@ -12967,6 +13029,7 @@ INSTANTIATE_SERIALISE_TYPE(VkMemoryPriorityAllocateInfoEXT);
 INSTANTIATE_SERIALISE_TYPE(VkMemoryRequirements2);
 INSTANTIATE_SERIALISE_TYPE(VkMultisampledRenderToSingleSampledInfoEXT);
 INSTANTIATE_SERIALISE_TYPE(VkMultisamplePropertiesEXT);
+INSTANTIATE_SERIALISE_TYPE(VkMultiviewPerViewRenderAreasRenderPassBeginInfoQCOM);
 INSTANTIATE_SERIALISE_TYPE(VkMutableDescriptorTypeCreateInfoEXT);
 INSTANTIATE_SERIALISE_TYPE(VkPastPresentationTimingGOOGLE);
 INSTANTIATE_SERIALISE_TYPE(VkPerformanceCounterDescriptionKHR);
@@ -13047,6 +13110,8 @@ INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMeshShaderFeaturesEXT);
 INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMeshShaderPropertiesEXT);
 INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT);
 INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMultiviewFeatures);
+INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMultiviewPerViewRenderAreasFeaturesQCOM);
+INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMultiviewPerViewViewportsFeaturesQCOM);
 INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMultiviewProperties);
 INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT);
 INSTANTIATE_SERIALISE_TYPE(VkPhysicalDeviceNestedCommandBufferFeaturesEXT);
