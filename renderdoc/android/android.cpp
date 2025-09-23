@@ -414,6 +414,11 @@ RDResult InstallRenderDocServer(const rdcstr &deviceID)
                         "Couldn't determine supported ABIs for device %s", deviceID.c_str());
   }
 
+  // install the best ABI first, so that for arm64 only devices we can know by the time we go to
+  // install arm32 whether arm64 installed correctly.
+  if(abis.size() == 2)
+    std::swap(abis[0], abis[1]);
+
   // Check known paths for RenderDoc server
   rdcstr libPath;
   FileIO::GetLibraryFilename(libPath);
@@ -483,11 +488,6 @@ RDResult InstallRenderDocServer(const rdcstr &deviceID)
                         "ABIs are not supported.");
 #endif
   }
-
-  // install the best ABI first, so that for arm64 only devices we can know by the time we go to
-  // install arm32 whether arm64 installed correctly
-  if(abis.size() == 2)
-    std::swap(abis[0], abis[1]);
 
   for(ABI abi : abis)
   {
@@ -584,6 +584,13 @@ RDResult InstallRenderDocServer(const rdcstr &deviceID)
           result = ResultCode::AndroidAPKVerifyFailed;
         }
       }
+    }
+
+    // Skip checking for additional apk's if we're happy with this one.
+    // Allows for arm64 only devices to exclude arm32 apks from their builds
+    if(result == ResultCode::Succeeded)
+    {
+      break;
     }
   }
 
