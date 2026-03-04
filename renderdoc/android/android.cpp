@@ -42,21 +42,29 @@ RDOC_CONFIG(uint32_t, Android_MaxConnectTimeout, 30,
 RDOC_CONFIG(bool, Android_Debug_ProcessLaunch, false,
             "Output verbose debug logging messages when launching android apps.");
 
+RDOC_CONFIG(bool, Android_SameMachineDebugging, false,
+            "Enable Android connection optimizations for running the "
+            "renderdoc client on the same machine as the server "
+            "with the server ports directly accessible to the client");
+
 namespace Android
 {
 void adbForwardPorts(uint16_t portbase, const rdcstr &deviceID, uint16_t jdwpPort, int pid,
                      bool silent)
 {
-  const char *forwardCommand = "forward tcp:%i localabstract:renderdoc_%i";
+  if(!Android_SameMachineDebugging())
+  {
+    const char *forwardCommand = "forward tcp:%i localabstract:renderdoc_%i";
 
-  adbExecCommand(deviceID,
-                 StringFormat::Fmt(forwardCommand, portbase + RenderDoc_ForwardRemoteServerOffset,
-                                   RenderDoc_RemoteServerPort),
-                 ".", silent);
-  adbExecCommand(deviceID,
-                 StringFormat::Fmt(forwardCommand, portbase + RenderDoc_ForwardTargetControlOffset,
-                                   RenderDoc_FirstTargetControlPort),
-                 ".", silent);
+    adbExecCommand(deviceID,
+                   StringFormat::Fmt(forwardCommand, portbase + RenderDoc_ForwardRemoteServerOffset,
+                                     RenderDoc_RemoteServerPort),
+                   ".", silent);
+    adbExecCommand(deviceID,
+                   StringFormat::Fmt(forwardCommand, portbase + RenderDoc_ForwardTargetControlOffset,
+                                     RenderDoc_FirstTargetControlPort),
+                   ".", silent);
+  }
 
   if(jdwpPort && pid)
     adbExecCommand(deviceID, StringFormat::Fmt("forward tcp:%hu jdwp:%i", jdwpPort, pid));
@@ -1291,11 +1299,18 @@ struct AndroidController : public IDeviceProtocolHandler
     if(portbase == 0)
       return 0;
 
-    if(srcPort == RenderDoc_RemoteServerPort)
-      return portbase + RenderDoc_ForwardRemoteServerOffset;
-    // we only support a single target control connection on android
-    else if(srcPort == RenderDoc_FirstTargetControlPort)
-      return portbase + RenderDoc_ForwardTargetControlOffset;
+    if(!Android_SameMachineDebugging())
+    {
+      if(srcPort == RenderDoc_RemoteServerPort)
+        return portbase + RenderDoc_ForwardRemoteServerOffset;
+      // we only support a single target control connection on android
+      else if(srcPort == RenderDoc_FirstTargetControlPort)
+        return portbase + RenderDoc_ForwardTargetControlOffset;
+    }
+    else if(srcPort == RenderDoc_RemoteServerPort || srcPort == RenderDoc_FirstTargetControlPort)
+    {
+      return srcPort;
+    }
 
     return 0;
   }

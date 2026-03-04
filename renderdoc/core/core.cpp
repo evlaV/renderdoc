@@ -647,6 +647,8 @@ void RenderDoc::Initialise()
   m_TimeBase = 0;
   m_TimeFrequency = 1.0;
 
+  ProcessConfig();
+
   if(!IsReplayApp())
   {
     m_TimeBase = Timing::GetTick();
@@ -750,8 +752,6 @@ void RenderDoc::Initialise()
   // information to stdout/stderr and being piped around and processed!
   if(IsReplayApp())
     RDCLOGOUTPUT();
-
-  ProcessConfig();
 }
 
 RenderDoc::~RenderDoc()

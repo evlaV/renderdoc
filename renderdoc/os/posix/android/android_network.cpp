@@ -26,6 +26,9 @@
 #include <unistd.h>
 #include "os/os_specific.h"
 #include "os/posix/posix_network.h"
+#include "core/settings.h"
+
+RDOC_EXTERN_CONFIG(bool, Android_SameMachineDebugging);
 
 namespace Network
 {
@@ -45,12 +48,29 @@ void SocketPostSend()
 
 uint32_t Socket::GetRemoteIP() const
 {
-  // Android uses abstract sockets which are only "localhost" accessible
-  return MakeIP(127, 0, 0, 1);
+  if(Android_SameMachineDebugging())
+  {
+    return GetIPFromTCPSocket((int)socket);
+  }
+  else
+  {
+    // Android uses abstract sockets which are only "localhost" accessible
+    return MakeIP(127, 0, 0, 1);
+  }
 }
 
-Socket *CreateServerSocket(const rdcstr &, uint16_t port, int queuesize)
+Socket *CreateServerSocket(const rdcstr &bindaddr, uint16_t port, int queuesize)
 {
-  return CreateAbstractServerSocket(port, queuesize);
+  if(Android_SameMachineDebugging())
+  {
+    // When running on the same machine, and the ports are accessible (same
+    // namespace, or port forwarding), we create a TCP socket, since those can
+    // be forwarded without adb, which may introduce slowness.
+    return CreateTCPServerSocket(bindaddr, port, queuesize);
+  }
+  else
+  {
+    return CreateAbstractServerSocket(port, queuesize);
+  }
 }
 };
