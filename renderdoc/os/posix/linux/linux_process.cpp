@@ -51,117 +51,16 @@ RDOC_CONFIG(bool, Linux_Debug_PtraceLogging, false, "Enable verbose debug loggin
 
 extern char **environ;
 
-// we wait 1ns, then 2ns, then 4ns, etc so our total is 0xfff etc
-// 0xfffff == ~1s
-#define INITIAL_WAIT_TIME 1
-#define MAX_WAIT_TIME 0xfffff
+extern int GetIdentPortNoForward(pid_t childPid);
 
 char **GetCurrentEnvironment()
 {
   return environ;
 }
 
-rdcarray<int> getSockets(pid_t childPid)
-{
-  rdcarray<int> sockets;
-  rdcstr dirPath = StringFormat::Fmt("/proc/%d/fd", (int)childPid);
-  rdcarray<PathEntry> files;
-  FileIO::GetFilesInDirectory(dirPath, files);
-  if(files.empty())
-    return sockets;
-
-  for(const PathEntry &file : files)
-  {
-    rdcstr target = StringFormat::Fmt("%s/%s", dirPath.c_str(), file.filename.c_str());
-    char linkname[1024];
-    ssize_t length = readlink(target.c_str(), linkname, 1023);
-    if(length == -1)
-      continue;
-
-    linkname[length] = '\0';
-    uint32_t inode = 0;
-    int num = sscanf(linkname, "socket:[%u]", &inode);
-    if(num == 1)
-      sockets.push_back(inode);
-  }
-  return sockets;
-}
-
 int GetIdentPort(pid_t childPid)
 {
-  int ret = 0;
-
-  rdcstr pidvalidfile = StringFormat::Fmt("/proc/%d/stat", (int)childPid);
-  rdcstr procfile = StringFormat::Fmt("/proc/%d/net/tcp", (int)childPid);
-
-  int waitTime = INITIAL_WAIT_TIME;
-
-  // try for a little while for the /proc entry to appear
-  while(ret == 0 && waitTime <= MAX_WAIT_TIME)
-  {
-    if(!FileIO::exists(pidvalidfile))
-    {
-      RDCWARN("Process %u is not running - did it exit during initialisation or fail to run?",
-              childPid);
-      return 0;
-    }
-
-    // back-off for each retry
-    usleep(waitTime);
-
-    waitTime *= 2;
-
-    FILE *f = FileIO::fopen(procfile, FileIO::ReadText);
-
-    if(f == NULL)
-    {
-      // try again in a bit
-      continue;
-    }
-
-    rdcarray<int> sockets = getSockets(childPid);
-
-    // read through the proc file to check for an open listen socket
-    while(ret == 0 && !feof(f))
-    {
-      const size_t sz = 512;
-      char line[sz];
-      line[sz - 1] = 0;
-      fgets(line, sz - 1, f);
-
-      // an example for a line:
-      // sl local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt  uid timeout inode
-      // 0: 00000000:9808 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000    0   109747
-
-      int socketnum = 0, hexip = 0, hexport = 0, inode = 0;
-      int num = sscanf(line, " %d: %x:%x %*x:%*x %*x %*x:%*x %*x:%*x %*x %*d %*d %d", &socketnum,
-                       &hexip, &hexport, &inode);
-
-      // find open listen socket on 0.0.0.0:port
-      if(num == 4 && hexip == 0 && hexport >= RenderDoc_FirstTargetControlPort &&
-         hexport <= RenderDoc_LastTargetControlPort && sockets.contains(inode))
-      {
-        ret = hexport;
-      }
-    }
-
-    FileIO::fclose(f);
-  }
-
-  if(ret == 0)
-  {
-    RDCWARN("Couldn't locate renderdoc target control listening port between %u and %u in %s",
-            (uint32_t)RenderDoc_FirstTargetControlPort, (uint32_t)RenderDoc_LastTargetControlPort,
-            procfile.c_str());
-
-    if(!FileIO::exists(procfile))
-    {
-      RDCWARN("Process %u is no longer running - did it exit during initialisation or fail to run?",
-              childPid);
-    }
-  }
-
-  return ret;
+    return GetIdentPortNoForward(childPid);
 }
 
 static bool ptrace_scope_ok()

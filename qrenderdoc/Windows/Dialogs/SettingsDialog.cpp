@@ -267,6 +267,15 @@ SettingsDialog::SettingsDialog(ICaptureContext &ctx, QWidget *parent)
     ui->Android_MaxConnectTimeout->setEnabled(false);
   }
 
+  if(const SDObject *setting = RENDERDOC_GetConfigSetting("Android.SameMachineDebugging"))
+  {
+    ui->Android_SameMachineDebugging->setChecked(setting->AsBool());
+  }
+  else
+  {
+    ui->Android_SameMachineDebugging->setEnabled(false);
+  }
+
 #if RENDERDOC_ANALYTICS_ENABLE
   if(m_Ctx.Config().Analytics_TotalOptOut)
   {
@@ -1361,6 +1370,14 @@ void SettingsDialog::on_Android_MaxConnectTimeout_valueChanged(double timeout)
 {
   RENDERDOC_SetConfigSetting("Android.MaxConnectTimeout")->data.basic.u =
       (uint32_t)ui->Android_MaxConnectTimeout->value();
+
+  RENDERDOC_SaveConfigSettings();
+}
+
+void SettingsDialog::on_Android_SameMachineDebugging_toggled(bool enabled)
+{
+  RENDERDOC_SetConfigSetting("Android.SameMachineDebugging")->data.basic.u =
+      (bool)ui->Android_SameMachineDebugging->isChecked();
 
   RENDERDOC_SaveConfigSettings();
 }

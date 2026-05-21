@@ -27,15 +27,20 @@
 #include "common/formatting.h"
 #include "os/os_specific.h"
 #include "strings/string_utils.h"
+#include "core/settings.h"
+
+RDOC_EXTERN_CONFIG(bool, Android_SameMachineDebugging);
 
 extern char **environ;
+
+extern int GetIdentPortNoForward(pid_t childPid);
 
 char **GetCurrentEnvironment()
 {
   return environ;
 }
 
-int GetIdentPort(pid_t childPid)
+int GetIdentPortForward(pid_t childPid)
 {
   int ret = 0;
 
@@ -96,6 +101,15 @@ int GetIdentPort(pid_t childPid)
   }
 
   return ret;
+}
+
+int GetIdentPort(pid_t childPid)
+{
+    if (Android_SameMachineDebugging()) {
+        return GetIdentPortNoForward(childPid);
+    } else {
+        return GetIdentPortForward(childPid);
+    }
 }
 
 void StopAtMainInChild()
